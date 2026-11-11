@@ -1,6 +1,8 @@
 
 const ReplicatedStorage = game:GetService("ReplicatedStorage")
+const PhysicsService = game:GetService("PhysicsService")
 const RunService = game:GetService("RunService")
+
 const EnemiesStorage = ReplicatedStorage:WaitForChild("EnemiesStorage") -- Replace with storage for enemies
 
 
@@ -9,6 +11,7 @@ const SpawnFolder = workspace.SpawnedEnemies
 const MapsFolder = workspace.Maps
 
 const SpawningUpwardsOffset = 1.5 -- Offset that the enemies spawn relative to the spawnpoint's cframe.
+const ArrivalDistance = 1 -- The distance the enemy needs to be to carry onto the next waypoint.
 
 ----------------------------------------------------------------------
 
@@ -20,6 +23,16 @@ end
 ----------------------------------------------------------------------
 
 local EnemySpawning = {}
+
+function EnemySpawning.Init()
+	-- Please ensure that you have a local script in StarterCharectorScripts
+	-- which can handle setting the players collision group!
+	PhysicsService:RegisterCollisionGroup("Players")
+	PhysicsService:RegisterCollisionGroup("Enemies")
+	
+	PhysicsService:CollisionGroupSetCollidable("Players", "Enemies", false)
+	PhysicsService:CollisionGroupSetCollidable("Enemies", "Enemies", false)
+end
 
 -- Moves the Enemy along the pathway that was designed.
 function EnemySpawning.MoveEnemyAlongPathway(NewEnemy, Map)
@@ -41,6 +54,26 @@ function EnemySpawning.MoveEnemyAlongPathway(NewEnemy, Map)
 				Humanoid:MoveTo(v.Position)
 				
 				local StartTime = os.clock()
+				local Reached = false
+				
+				while RootPart.Parent and Humanoid.Health > 0 do
+					
+					local Distance = GetHorizontalDistance(
+						RootPart.Position,
+						v.Position
+					)
+					
+					if Distance <= ArrivalDistance then
+						Reached = true
+						break
+					end
+					
+					if os.clock() - StartTime >= 8 then
+						break
+					end
+					
+					RunService.Heartbeat:Wait()
+				end
 				
 			else
 				-- debugging
@@ -141,6 +174,13 @@ function EnemySpawning.SpawnNewEnemy(EnemyType, Variant, Location)
 		end
 		
 		if NewEnemy then
+			
+			for i, v in NewEnemy:GetDescendants() do
+				if v:IsA("BasePart") or v:IsA("MeshPart") then
+					v.CollisionGroup = "Enemies"
+				end
+			end
+			
 			local Map = EnemySpawning.PlaceInWorkspace(NewEnemy, Location) -- Also runs the function
 			-- returns the map back
 			

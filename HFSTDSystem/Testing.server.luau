@@ -1,4 +1,5 @@
 local x = require(script.Parent.EnemySpawning)
+x.Init()
 
 for i=1, 100 do
 	for i=1, 5 do
