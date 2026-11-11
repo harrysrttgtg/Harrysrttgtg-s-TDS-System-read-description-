@@ -3,6 +3,9 @@ const ReplicatedStorage = game:GetService("ReplicatedStorage")
 const PhysicsService = game:GetService("PhysicsService")
 const RunService = game:GetService("RunService")
 
+const EnemyDictionaryModule = require(script.Parent.EnemyDictionary)
+const EnemyDictionary = EnemyDictionaryModule.GetCopy()
+
 const EnemiesStorage = ReplicatedStorage:WaitForChild("EnemiesStorage") -- Replace with storage for enemies
 
 
@@ -49,35 +52,38 @@ function EnemySpawning.MoveEnemyAlongPathway(NewEnemy, Map)
 		
 		local Waypoints = Map:FindFirstChild("Waypoints")
 		
-		for i, v in ipairs(Waypoints:GetChildren()) do
+		local WaypointList = Waypoints:GetChildren()
+
+		table.sort(WaypointList, function(a, b)
+			return tonumber(a.Name) < tonumber(b.Name)
+		end)
+
+		for i, v in ipairs(WaypointList) do
 			if v:IsA("BasePart") then
 				Humanoid:MoveTo(v.Position)
-				
+
 				local StartTime = os.clock()
 				local Reached = false
-				
+
 				while RootPart.Parent and Humanoid.Health > 0 do
-					
 					local Distance = GetHorizontalDistance(
 						RootPart.Position,
 						v.Position
 					)
-					
+
 					if Distance <= ArrivalDistance then
 						Reached = true
 						break
 					end
-					
+
 					if os.clock() - StartTime >= 8 then
 						break
 					end
-					
+
 					RunService.Heartbeat:Wait()
 				end
-				
 			else
-				-- debugging
-				warn("Instance in the Waypoints folder is not a basepart, please investigate this...")
+				warn("Instance in the Waypoints folder is not a BasePart, please investigate this...")
 				warn("Map: " .. tostring(Map))
 				warn("Item/Instance: " .. tostring(v))
 			end
@@ -149,6 +155,9 @@ function EnemySpawning.SpawnNewEnemy(EnemyType, Variant, Location)
 	you can define it with Spawnpoint.
 	]]
 	
+	local DictionaryEntryGroup = EnemyDictionary[EnemyType]
+	local DictionaryEntryVariant = nil
+	
 	local EnemyTypeFolder = EnemiesStorage:FindFirstChild(EnemyType)
 	
 	if EnemyType and EnemyTypeFolder and Location then
@@ -165,16 +174,26 @@ function EnemySpawning.SpawnNewEnemy(EnemyType, Variant, Location)
 				return nil
 			end
 			
+			DictionaryEntryVariant = DictionaryEntryGroup[EnemyType]
 			NewEnemy = EnemyVarient:Clone()
 		else
 			-- Varient is nil, just finds the default enemy.
 			local EnemyDefault = EnemyTypeFolder:FindFirstChild(EnemyType)
 			
+			DictionaryEntryVariant = DictionaryEntryGroup[EnemyType]
 			NewEnemy = EnemyDefault:Clone()
 		end
 		
-		if NewEnemy then
+		if NewEnemy and DictionaryEntryVariant then
+			-- Handle walkspeed and health:
+			local Humanoid = NewEnemy:FindFirstChildOfClass("Humanoid")
 			
+			Humanoid.WalkSpeed = DictionaryEntryVariant.Speed
+			Humanoid.SetAttribute(NewEnemy, "Health", DictionaryEntryVariant.Health)
+			Humanoid.SetAttribute(NewEnemy, "MaxHealth", DictionaryEntryVariant.Health)
+			Humanoid.SetAttribute(NewEnemy, "Shield", DictionaryEntryVariant.Shield)
+			
+			-- Collision Groups
 			for i, v in NewEnemy:GetDescendants() do
 				if v:IsA("BasePart") or v:IsA("MeshPart") then
 					v.CollisionGroup = "Enemies"
